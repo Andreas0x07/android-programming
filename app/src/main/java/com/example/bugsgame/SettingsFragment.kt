@@ -33,13 +33,11 @@ class SettingsFragment : Fragment() {
         val etRoundDuration: EditText = view.findViewById(R.id.etRoundDuration)
         val btnSaveSettings: Button = view.findViewById(R.id.btnSaveSettings)
 
-        // Set initial values
         sbGameSpeed.progress = settings.gameSpeed
         etMaxCockroaches.setText(settings.maxCockroaches.toString())
         etBonusInterval.setText(settings.bonusInterval.toString())
         etRoundDuration.setText(settings.roundDuration.toString())
 
-        // Save settings
         btnSaveSettings.setOnClickListener {
             settings.gameSpeed = sbGameSpeed.progress
             settings.maxCockroaches = etMaxCockroaches.text.toString().toIntOrNull() ?: settings.maxCockroaches

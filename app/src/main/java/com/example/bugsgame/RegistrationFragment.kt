@@ -27,7 +27,6 @@ class RegistrationFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_registration, container, false)
 
-        // Find views
         val etFullName: EditText = view.findViewById(R.id.etFullName)
         val rgGender: RadioGroup = view.findViewById(R.id.rgGender)
         val spCourse: Spinner = view.findViewById(R.id.spCourse)
@@ -37,19 +36,16 @@ class RegistrationFragment : Fragment() {
         val btnSubmit: Button = view.findViewById(R.id.btnSubmit)
         val tvOutput: TextView = view.findViewById(R.id.tvOutput)
 
-        // Populate Spinner with courses
         val courses = arrayOf("1st Year", "2nd Year", "3rd Year", "4th Year")
         val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, courses)
         spCourse.adapter = adapter
 
-        // Calendar listener
         cvBirthDate.setOnDateChangeListener { _, year, month, day ->
             player.birthDate.set(year, month, day)
             player.zodiac = getZodiacSign(player.birthDate)
             ivZodiac.setImageResource(getZodiacImage(player.zodiac))
         }
 
-        // Submit button
         btnSubmit.setOnClickListener {
             player.fullName = etFullName.text.toString()
             val selectedGenderId = rgGender.checkedRadioButtonId

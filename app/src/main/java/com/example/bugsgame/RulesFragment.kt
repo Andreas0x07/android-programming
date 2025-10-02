@@ -17,7 +17,6 @@ class RulesFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_rules, container, false)
         val webView: WebView = view.findViewById(R.id.wvRules)
 
-        // Load HTML from raw resource
         val inputStream: InputStream = resources.openRawResource(R.raw.rules)
         val htmlContent = inputStream.bufferedReader().use { it.readText() }
         webView.loadData(htmlContent, "text/html", "UTF-8")

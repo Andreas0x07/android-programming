@@ -15,17 +15,16 @@ class MainActivity : AppCompatActivity() {
         val viewPager: ViewPager2 = findViewById(R.id.viewPager)
         val tabLayout: TabLayout = findViewById(R.id.tabLayout)
 
-        // Set up ViewPager with Fragment adapter
         val adapter = ViewPagerAdapter(this)
         viewPager.adapter = adapter
 
-        // Connect TabLayout with ViewPager
         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
             tab.text = when (position) {
                 0 -> "Registration"
-                1 -> "Rules"
-                2 -> "Authors"
-                3 -> "Settings"
+                1 -> "Game"
+                2 -> "Rules"
+                3 -> "Authors"
+                4 -> "Settings"
                 else -> null
             }
         }.attach()

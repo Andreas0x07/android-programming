@@ -6,7 +6,6 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <!-- Game Speed -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -18,7 +17,6 @@
         android:max="100"
         android:progress="50" />
 
-    <!-- Max Cockroaches -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -30,7 +28,6 @@
         android:inputType="number"
         android:hint="Enter number (e.g., 10)" />
 
-    <!-- Bonus Interval -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -42,7 +39,6 @@
         android:inputType="number"
         android:hint="Enter seconds (e.g., 15)" />
 
-    <!-- Round Duration -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -54,7 +50,6 @@
         android:inputType="number"
         android:hint="Enter seconds (e.g., 60)" />
 
-    <!-- Save Settings Button -->
     <Button
         android:id="@+id/btnSaveSettings"
         android:layout_width="match_parent"

@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">BugsGame</string>
     <string-array name="author_names">
-        <item>Student Name 1</item>
-        <item>Student Name 2</item>
+        <item>Andreas Weibert</item>
+        <item>Grogiy Savchenko</item>
     </string-array>
 </resources>

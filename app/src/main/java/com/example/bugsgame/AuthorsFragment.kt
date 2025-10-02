@@ -21,7 +21,7 @@ class AuthorsFragment : Fragment() {
 
         val authorNames = resources.getStringArray(R.array.author_names)
         val authorPhotos = intArrayOf(
-            R.drawable.weibert, // Replace with actual drawable resources
+            R.drawable.weibert,
             R.drawable.savchenko
         )
 

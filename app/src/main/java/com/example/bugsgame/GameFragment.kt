@@ -1,0 +1,175 @@
+package com.example.bugsgame
+
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ObjectAnimator
+import android.os.Bundle
+import android.os.CountDownTimer
+import android.os.Handler
+import android.os.Looper
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.view.animation.LinearInterpolator
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.RelativeLayout
+import android.widget.TextView
+import androidx.fragment.app.Fragment
+import kotlin.math.atan2
+import kotlin.random.Random
+
+class GameFragment : Fragment() {
+
+    private lateinit var gameArea: RelativeLayout
+    private lateinit var scoreTextView: TextView
+    private lateinit var timerTextView: TextView
+    private lateinit var startButton: Button
+
+    private var score = 0
+    private val handler = Handler(Looper.getMainLooper())
+    private var isGameRunning = false
+
+    private val bugSpawner = object : Runnable {
+        override fun run() {
+            if (isGameRunning) {
+                spawnBug()
+                val randomDelay = Random.nextLong(100, 1001)
+                handler.postDelayed(this, randomDelay)
+            }
+        }
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_game, container, false)
+
+        gameArea = view.findViewById(R.id.gameArea)
+        scoreTextView = view.findViewById(R.id.tvScore)
+        timerTextView = view.findViewById(R.id.tvTimer)
+        startButton = view.findViewById(R.id.btnStartGame)
+
+        startButton.setOnClickListener {
+            startGame()
+        }
+
+        gameArea.setOnClickListener {
+            if (isGameRunning) {
+                score -= 5
+                updateScore()
+            }
+        }
+
+        return view
+    }
+
+    private fun startGame() {
+        startButton.visibility = View.GONE
+        score = 0
+        updateScore()
+        isGameRunning = true
+        handler.post(bugSpawner)
+
+        object : CountDownTimer(60000, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                timerTextView.text = "Time: ${millisUntilFinished / 1000}"
+            }
+
+            override fun onFinish() {
+                endGame()
+            }
+        }.start()
+    }
+
+    private fun endGame() {
+        isGameRunning = false
+        handler.removeCallbacks(bugSpawner)
+        timerTextView.text = "Time: 0"
+        startButton.visibility = View.VISIBLE
+        startButton.text = "Play Again"
+        gameArea.removeAllViews()
+    }
+
+    private fun spawnBug() {
+        val bug = ImageView(context)
+        bug.setImageResource(R.drawable.bug)
+        bug.layoutParams = ViewGroup.LayoutParams(100, 100)
+
+        bug.setOnClickListener {
+            score += 10
+            updateScore()
+            gameArea.removeView(bug)
+        }
+
+        val (startX, startY) = getRandomEdgePosition()
+        bug.x = startX.toFloat()
+        bug.y = startY.toFloat()
+
+        gameArea.addView(bug)
+        animateBug(bug)
+    }
+
+    private fun animateBug(bug: ImageView) {
+        val startX = bug.x
+        val startY = bug.y
+
+        val endX = if (startX < gameArea.width / 2) gameArea.width.toFloat() else -100f
+        val endY = Random.nextInt(gameArea.height).toFloat()
+
+        val deltaX = endX - startX
+        val deltaY = endY - startY
+        val distance = kotlin.math.sqrt(deltaX * deltaX + deltaY * deltaY)
+        val duration = (distance / 0.2f).toLong() // Speed: 0.2 pixels/ms
+
+        val angle = atan2(deltaY.toDouble(), deltaX.toDouble()) * (180 / Math.PI)
+        bug.rotation = angle.toFloat() + 90f
+
+        val animatorX = ObjectAnimator.ofFloat(bug, "translationX", endX)
+        val animatorY = ObjectAnimator.ofFloat(bug, "translationY", endY)
+
+        animatorX.duration = duration
+        animatorY.duration = duration
+        animatorX.interpolator = LinearInterpolator()
+        animatorY.interpolator = LinearInterpolator()
+
+        animatorX.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                if (bug.parent != null) {
+                    gameArea.removeView(bug)
+                }
+            }
+        })
+
+        animatorX.start()
+        animatorY.start()
+    }
+    private fun getRandomEdgePosition(): Pair<Int, Int> {
+        val edge = Random.nextInt(4)
+        var x = 0
+        var y = 0
+        when (edge) {
+            0 -> x = 0
+            1 -> x = gameArea.width - 100
+            2 -> y = 0
+            3 -> y = gameArea.height - 100
+        }
+        if (edge < 2) {
+            y = Random.nextInt(gameArea.height - 100)
+        } else {
+            x = Random.nextInt(gameArea.width - 100)
+        }
+        return Pair(x, y)
+    }
+
+    private fun getRandomPosition(): Pair<Float, Float> {
+        val x = Random.nextInt(gameArea.width - 100).toFloat()
+        val y = Random.nextInt(gameArea.height - 100).toFloat()
+        return Pair(x, y)
+    }
+
+    private fun updateScore() {
+        scoreTextView.text = "Score: $score"
+    }
+}
