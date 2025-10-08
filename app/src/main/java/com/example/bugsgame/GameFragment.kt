@@ -3,6 +3,7 @@ package com.example.bugsgame
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
+import android.content.Context
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
@@ -17,6 +18,7 @@ import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import kotlin.math.atan2
+import kotlin.math.max
 import kotlin.random.Random
 
 class GameFragment : Fragment() {
@@ -27,15 +29,29 @@ class GameFragment : Fragment() {
     private lateinit var startButton: Button
 
     private var score = 0
+    private var bugCount = 0
+    private var bonusCount = 0
     private val handler = Handler(Looper.getMainLooper())
     private var isGameRunning = false
+    private lateinit var settings: SettingsFragment.GameSettings
 
     private val bugSpawner = object : Runnable {
         override fun run() {
-            if (isGameRunning) {
+            if (isGameRunning && bugCount < settings.maxCockroaches) {
                 spawnBug()
-                val randomDelay = Random.nextLong(100, 1001)
+                val upperDelay = max(501L, 1500 - settings.bonusInterval * 50L)
+                val randomDelay = Random.nextLong(500, upperDelay)
                 handler.postDelayed(this, randomDelay)
+            }
+        }
+    }
+
+    private val bonusSpawner = object : Runnable {
+        override fun run() {
+            if (isGameRunning) {
+                spawnBonus()
+                val safeInterval = max(1, settings.bonusInterval) * 1000L
+                handler.postDelayed(this, safeInterval)
             }
         }
     }
@@ -50,6 +66,15 @@ class GameFragment : Fragment() {
         scoreTextView = view.findViewById(R.id.tvScore)
         timerTextView = view.findViewById(R.id.tvTimer)
         startButton = view.findViewById(R.id.btnStartGame)
+
+        // Загрузка настроек
+        val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
+        settings = SettingsFragment.GameSettings(
+            gameSpeed = sharedPrefs.getInt("gameSpeed", 50),
+            maxCockroaches = sharedPrefs.getInt("maxCockroaches", 10),
+            bonusInterval = sharedPrefs.getInt("bonusInterval", 15),
+            roundDuration = sharedPrefs.getInt("roundDuration", 60)
+        )
 
         startButton.setOnClickListener {
             startGame()
@@ -68,11 +93,16 @@ class GameFragment : Fragment() {
     private fun startGame() {
         startButton.visibility = View.GONE
         score = 0
+        bugCount = 0
+        bonusCount = 0
         updateScore()
         isGameRunning = true
         handler.post(bugSpawner)
+        val safeInitialInterval = max(1, settings.bonusInterval) * 1000L
+        handler.postDelayed(bonusSpawner, safeInitialInterval)
 
-        object : CountDownTimer(60000, 1000) {
+        val safeDuration = max(1, settings.roundDuration) * 1000L
+        object : CountDownTimer(safeDuration, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 timerTextView.text = "Time: ${millisUntilFinished / 1000}"
             }
@@ -86,6 +116,7 @@ class GameFragment : Fragment() {
     private fun endGame() {
         isGameRunning = false
         handler.removeCallbacks(bugSpawner)
+        handler.removeCallbacks(bonusSpawner)
         timerTextView.text = "Time: 0"
         startButton.visibility = View.VISIBLE
         startButton.text = "Play Again"
@@ -96,9 +127,11 @@ class GameFragment : Fragment() {
         val bug = ImageView(context)
         bug.setImageResource(R.drawable.bug)
         bug.layoutParams = ViewGroup.LayoutParams(100, 100)
+        bug.tag = "bug"
 
         bug.setOnClickListener {
             score += 10
+            bugCount--
             updateScore()
             gameArea.removeView(bug)
         }
@@ -108,7 +141,33 @@ class GameFragment : Fragment() {
         bug.y = startY.toFloat()
 
         gameArea.addView(bug)
+        bugCount++
         animateBug(bug)
+    }
+
+    private fun spawnBonus() {
+        if (bonusCount >= 1) return // Ограничение на количество бонусов
+        val bonus = ImageView(context)
+        bonus.setImageResource(R.drawable.bonus_bug)
+        bonus.layoutParams = ViewGroup.LayoutParams(100, 100)
+        bonus.tag = "bonus"
+
+        bonus.setOnClickListener {
+            score += 50
+            bonusCount--
+            updateScore()
+            gameArea.removeView(bonus)
+        }
+
+
+        val (startX, startY) = getRandomEdgePosition()
+        bonus.x = startX.toFloat()
+        bonus.y = startY.toFloat()
+
+        gameArea.addView(bonus)
+        bonusCount++
+
+        animateBug(bonus)
     }
 
     private fun animateBug(bug: ImageView) {
@@ -121,7 +180,8 @@ class GameFragment : Fragment() {
         val deltaX = endX - startX
         val deltaY = endY - startY
         val distance = kotlin.math.sqrt(deltaX * deltaX + deltaY * deltaY)
-        val duration = (distance / 0.2f).toLong() // Speed: 0.2 pixels/ms
+        val speed = max(0.1f, settings.gameSpeed / 100f)
+        val duration = (distance / speed).toLong()
 
         val angle = atan2(deltaY.toDouble(), deltaX.toDouble()) * (180 / Math.PI)
         bug.rotation = angle.toFloat() + 90f
@@ -138,6 +198,8 @@ class GameFragment : Fragment() {
             override fun onAnimationEnd(animation: Animator) {
                 if (bug.parent != null) {
                     gameArea.removeView(bug)
+                    if (bug.tag == "bug") bugCount--
+                    else if (bug.tag == "bonus") bonusCount--
                 }
             }
         })
@@ -145,6 +207,7 @@ class GameFragment : Fragment() {
         animatorX.start()
         animatorY.start()
     }
+
     private fun getRandomEdgePosition(): Pair<Int, Int> {
         val edge = Random.nextInt(4)
         var x = 0

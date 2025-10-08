@@ -1,5 +1,6 @@
 package com.example.bugsgame
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -33,6 +34,12 @@ class SettingsFragment : Fragment() {
         val etRoundDuration: EditText = view.findViewById(R.id.etRoundDuration)
         val btnSaveSettings: Button = view.findViewById(R.id.btnSaveSettings)
 
+        val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
+        settings.gameSpeed = sharedPrefs.getInt("gameSpeed", 50)
+        settings.maxCockroaches = sharedPrefs.getInt("maxCockroaches", 10)
+        settings.bonusInterval = sharedPrefs.getInt("bonusInterval", 15)
+        settings.roundDuration = sharedPrefs.getInt("roundDuration", 60)
+
         sbGameSpeed.progress = settings.gameSpeed
         etMaxCockroaches.setText(settings.maxCockroaches.toString())
         etBonusInterval.setText(settings.bonusInterval.toString())
@@ -43,6 +50,14 @@ class SettingsFragment : Fragment() {
             settings.maxCockroaches = etMaxCockroaches.text.toString().toIntOrNull() ?: settings.maxCockroaches
             settings.bonusInterval = etBonusInterval.text.toString().toIntOrNull() ?: settings.bonusInterval
             settings.roundDuration = etRoundDuration.text.toString().toIntOrNull() ?: settings.roundDuration
+
+            with(sharedPrefs.edit()) {
+                putInt("gameSpeed", settings.gameSpeed)
+                putInt("maxCockroaches", settings.maxCockroaches)
+                putInt("bonusInterval", settings.bonusInterval)
+                putInt("roundDuration", settings.roundDuration)
+                apply()
+            }
 
             Toast.makeText(context, "Settings saved!", Toast.LENGTH_SHORT).show()
         }
