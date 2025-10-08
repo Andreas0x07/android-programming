@@ -16,7 +16,12 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.RelativeLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import com.example.bugsgame.data.DatabaseProvider
+import com.example.bugsgame.data.Score
+import kotlinx.coroutines.launch
 import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.random.Random
@@ -34,6 +39,7 @@ class GameFragment : Fragment() {
     private val handler = Handler(Looper.getMainLooper())
     private var isGameRunning = false
     private lateinit var settings: SettingsFragment.GameSettings
+    private var currentPlayerId: Int? = null
 
     private val bugSpawner = object : Runnable {
         override fun run() {
@@ -76,8 +82,15 @@ class GameFragment : Fragment() {
             roundDuration = sharedPrefs.getInt("roundDuration", 60)
         )
 
+        // Загрузка ID текущего игрока из SharedPreferences
+        currentPlayerId = sharedPrefs.getInt("currentPlayerId", -1).takeIf { it != -1 }
+
         startButton.setOnClickListener {
-            startGame()
+            if (currentPlayerId == null) {
+                Toast.makeText(context, "Пожалуйста, выберите или зарегистрируйте игрока!", Toast.LENGTH_SHORT).show()
+            } else {
+                startGame()
+            }
         }
 
         gameArea.setOnClickListener {
@@ -121,6 +134,21 @@ class GameFragment : Fragment() {
         startButton.visibility = View.VISIBLE
         startButton.text = "Play Again"
         gameArea.removeAllViews()
+
+        // Сохранение очков в базу данных
+        currentPlayerId?.let { playerId ->
+            lifecycleScope.launch {
+                val db = DatabaseProvider.getDatabase(requireContext()).appDao()
+                val scoreEntry = Score(
+                    playerId = playerId,
+                    score = score,
+                    difficulty = settings.maxCockroaches, // Используем maxCockroaches как уровень сложности
+                    timestamp = System.currentTimeMillis()
+                )
+                db.insertScore(scoreEntry)
+                Toast.makeText(context, "Очки сохранены!", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun spawnBug() {
@@ -146,7 +174,7 @@ class GameFragment : Fragment() {
     }
 
     private fun spawnBonus() {
-        if (bonusCount >= 1) return // Ограничение на количество бонусов
+        if (bonusCount >= 1) return
         val bonus = ImageView(context)
         bonus.setImageResource(R.drawable.bonus_bug)
         bonus.layoutParams = ViewGroup.LayoutParams(100, 100)
@@ -158,7 +186,6 @@ class GameFragment : Fragment() {
             updateScore()
             gameArea.removeView(bonus)
         }
-
 
         val (startX, startY) = getRandomEdgePosition()
         bonus.x = startX.toFloat()
@@ -223,12 +250,6 @@ class GameFragment : Fragment() {
         } else {
             x = Random.nextInt(gameArea.width - 100)
         }
-        return Pair(x, y)
-    }
-
-    private fun getRandomPosition(): Pair<Float, Float> {
-        val x = Random.nextInt(gameArea.width - 100).toFloat()
-        val y = Random.nextInt(gameArea.height - 100).toFloat()
         return Pair(x, y)
     }
 
