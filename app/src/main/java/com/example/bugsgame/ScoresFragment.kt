@@ -22,19 +22,16 @@ class ScoresFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        // Загружаем layout для фрагмента
         val view = inflater.inflate(R.layout.fragment_scores, container, false)
         val listView: ListView = view.findViewById(R.id.lvScores)
 
-        // Создаём адаптер и привязываем его к ListView
         val adapter = ScoresAdapter()
         listView.adapter = adapter
 
-        // Загружаем рекорды из базы данных асинхронно
         lifecycleScope.launch {
             DatabaseProvider.getDatabase(requireContext()).appDao().getAllScores()
                 .collectLatest { scores ->
-                    adapter.updateScores(scores) // Обновляем данные в адаптере
+                    adapter.updateScores(scores)
                 }
         }
 
@@ -51,18 +48,15 @@ class ScoresFragment : Fragment() {
         override fun getItemId(position: Int): Long = position.toLong()
 
         override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
-            // Используем существующий view или создаём новый
             val view = convertView ?: LayoutInflater.from(parent?.context).inflate(
                 R.layout.item_score, parent, false
             )
 
-            // Находим TextView в layout элемента
             val tvScore: TextView = view.findViewById(R.id.tvScore)
             val tvPlayerName: TextView = view.findViewById(R.id.tvPlayerName)
             val tvDifficulty: TextView = view.findViewById(R.id.tvDifficulty)
             val tvDate: TextView = view.findViewById(R.id.tvDate)
 
-            // Получаем данные для текущей позиции
             val score = scores[position]
             tvScore.text = "Очки: ${score.score}"
             tvPlayerName.text = "Игрок: ${score.fullName}"
@@ -74,11 +68,10 @@ class ScoresFragment : Fragment() {
             return view
         }
 
-        // Метод для обновления списка рекордов
         fun updateScores(newScores: List<AppDao.ScoreWithPlayer>) {
             scores.clear()
             scores.addAll(newScores)
-            notifyDataSetChanged() // Уведомляем адаптер об изменении данных
+            notifyDataSetChanged()
         }
     }
 }

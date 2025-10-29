@@ -1,9 +1,10 @@
 package com.example.bugsgame
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
-import android.animation.ObjectAnimator
 import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
@@ -11,7 +12,6 @@ import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.LinearInterpolator
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.RelativeLayout
@@ -26,7 +26,7 @@ import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.random.Random
 
-class GameFragment : Fragment() {
+class GameFragment : Fragment(), SensorEventListener {
 
     private lateinit var gameArea: RelativeLayout
     private lateinit var scoreTextView: TextView
@@ -40,6 +40,54 @@ class GameFragment : Fragment() {
     private var isGameRunning = false
     private lateinit var settings: SettingsFragment.GameSettings
     private var currentPlayerId: Int? = null
+
+    private lateinit var sensorManager: SensorManager
+    private var accelerometer: Sensor? = null
+    private var isBonusActive = false
+    private var tiltX: Float = 0f
+    private var tiltY: Float = 0f
+
+    private data class Velocity(var vx: Float, var vy: Float)
+    private val bugVelocities = mutableMapOf<ImageView, Velocity>()
+
+    private val gameLoop = object : Runnable {
+        override fun run() {
+            if (!isGameRunning) return
+
+            val bugsToRemove = mutableListOf<ImageView>()
+            val gameWidth = gameArea.width
+            val gameHeight = gameArea.height
+
+            for (bug in bugVelocities.keys) {
+                val velocity = bugVelocities[bug] ?: continue
+
+                var newX = bug.x + velocity.vx
+                var newY = bug.y + velocity.vy
+
+                if (isBonusActive) {
+                    newX += tiltX * 2.0f
+                    newY += tiltY * 2.0f
+                }
+
+                if (newX < -bug.width || newX > gameWidth || newY < -bug.height || newY > gameHeight) {
+                    bugsToRemove.add(bug)
+                } else {
+                    bug.x = newX
+                    bug.y = newY
+                }
+            }
+
+            for (bug in bugsToRemove) {
+                gameArea.removeView(bug)
+                bugVelocities.remove(bug)
+                if (bug.tag == "bug") bugCount--
+                else if (bug.tag == "bonus") bonusCount--
+            }
+
+            handler.postDelayed(this, 16)
+        }
+    }
+
 
     private val bugSpawner = object : Runnable {
         override fun run() {
@@ -73,7 +121,9 @@ class GameFragment : Fragment() {
         timerTextView = view.findViewById(R.id.tvTimer)
         startButton = view.findViewById(R.id.btnStartGame)
 
-        // Загрузка настроек
+        sensorManager = requireContext().getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
         val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
         settings = SettingsFragment.GameSettings(
             gameSpeed = sharedPrefs.getInt("gameSpeed", 50),
@@ -82,7 +132,6 @@ class GameFragment : Fragment() {
             roundDuration = sharedPrefs.getInt("roundDuration", 60)
         )
 
-        // Загрузка ID текущего игрока из SharedPreferences
         currentPlayerId = sharedPrefs.getInt("currentPlayerId", -1).takeIf { it != -1 }
 
         startButton.setOnClickListener {
@@ -110,9 +159,11 @@ class GameFragment : Fragment() {
         bonusCount = 0
         updateScore()
         isGameRunning = true
+
         handler.post(bugSpawner)
         val safeInitialInterval = max(1, settings.bonusInterval) * 1000L
         handler.postDelayed(bonusSpawner, safeInitialInterval)
+        handler.post(gameLoop) // Start the new game loop
 
         val safeDuration = max(1, settings.roundDuration) * 1000L
         object : CountDownTimer(safeDuration, 1000) {
@@ -130,19 +181,25 @@ class GameFragment : Fragment() {
         isGameRunning = false
         handler.removeCallbacks(bugSpawner)
         handler.removeCallbacks(bonusSpawner)
+        handler.removeCallbacks(gameLoop)
+
         timerTextView.text = "Time: 0"
         startButton.visibility = View.VISIBLE
         startButton.text = "Play Again"
-        gameArea.removeAllViews()
 
-        // Сохранение очков в базу данных
+        gameArea.removeAllViews()
+        bugVelocities.clear()
+        isBonusActive = false
+        tiltX = 0f
+        tiltY = 0f
+
         currentPlayerId?.let { playerId ->
             lifecycleScope.launch {
                 val db = DatabaseProvider.getDatabase(requireContext()).appDao()
                 val scoreEntry = Score(
                     playerId = playerId,
                     score = score,
-                    difficulty = settings.maxCockroaches, // Используем maxCockroaches как уровень сложности
+                    difficulty = settings.maxCockroaches,
                     timestamp = System.currentTimeMillis()
                 )
                 db.insertScore(scoreEntry)
@@ -162,6 +219,7 @@ class GameFragment : Fragment() {
             bugCount--
             updateScore()
             gameArea.removeView(bug)
+            bugVelocities.remove(bug)
         }
 
         val (startX, startY) = getRandomEdgePosition()
@@ -170,7 +228,11 @@ class GameFragment : Fragment() {
 
         gameArea.addView(bug)
         bugCount++
-        animateBug(bug)
+
+        val (vx, vy) = getInitialVelocity(bug.x, bug.y)
+        bugVelocities[bug] = Velocity(vx, vy)
+        val angle = atan2(vy.toDouble(), vx.toDouble()) * (180 / Math.PI)
+        bug.rotation = angle.toFloat() + 90f
     }
 
     private fun spawnBonus() {
@@ -185,6 +247,8 @@ class GameFragment : Fragment() {
             bonusCount--
             updateScore()
             gameArea.removeView(bonus)
+            bugVelocities.remove(bonus)
+            activateTiltBonus()
         }
 
         val (startX, startY) = getRandomEdgePosition()
@@ -194,45 +258,40 @@ class GameFragment : Fragment() {
         gameArea.addView(bonus)
         bonusCount++
 
-        animateBug(bonus)
+        val (vx, vy) = getInitialVelocity(bonus.x, bonus.y)
+        bugVelocities[bonus] = Velocity(vx, vy)
+        val angle = atan2(vy.toDouble(), vx.toDouble()) * (180 / Math.PI)
+        bonus.rotation = angle.toFloat() + 90f
     }
 
-    private fun animateBug(bug: ImageView) {
-        val startX = bug.x
-        val startY = bug.y
 
-        val endX = if (startX < gameArea.width / 2) gameArea.width.toFloat() else -100f
+    private fun getInitialVelocity(startX: Float, startY: Float): Velocity {
+        val endX = if (startX < gameArea.width / 2) gameArea.width.toFloat() + 100f else -100f
         val endY = Random.nextInt(gameArea.height).toFloat()
 
         val deltaX = endX - startX
         val deltaY = endY - startY
         val distance = kotlin.math.sqrt(deltaX * deltaX + deltaY * deltaY)
-        val speed = max(0.1f, settings.gameSpeed / 100f)
-        val duration = (distance / speed).toLong()
 
-        val angle = atan2(deltaY.toDouble(), deltaX.toDouble()) * (180 / Math.PI)
-        bug.rotation = angle.toFloat() + 90f
+        val speed = max(0.1f, settings.gameSpeed / 100f) * 10f
 
-        val animatorX = ObjectAnimator.ofFloat(bug, "translationX", endX)
-        val animatorY = ObjectAnimator.ofFloat(bug, "translationY", endY)
+        val vx = (deltaX / distance) * speed
+        val vy = (deltaY / distance) * speed
 
-        animatorX.duration = duration
-        animatorY.duration = duration
-        animatorX.interpolator = LinearInterpolator()
-        animatorY.interpolator = LinearInterpolator()
+        return Velocity(vx, vy)
+    }
 
-        animatorX.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                if (bug.parent != null) {
-                    gameArea.removeView(bug)
-                    if (bug.tag == "bug") bugCount--
-                    else if (bug.tag == "bonus") bonusCount--
-                }
-            }
-        })
+    private fun activateTiltBonus() {
+        if (isBonusActive) return
+        isBonusActive = true
+        Toast.makeText(context, "TILT BONUS ACTIVE!", Toast.LENGTH_SHORT).show()
 
-        animatorX.start()
-        animatorY.start()
+        handler.postDelayed({
+            isBonusActive = false
+            tiltX = 0f
+            tiltY = 0f
+            Toast.makeText(context, "Tilt bonus ended", Toast.LENGTH_SHORT).show()
+        }, 15000)
     }
 
     private fun getRandomEdgePosition(): Pair<Int, Int> {
@@ -240,20 +299,45 @@ class GameFragment : Fragment() {
         var x = 0
         var y = 0
         when (edge) {
-            0 -> x = 0
-            1 -> x = gameArea.width - 100
-            2 -> y = 0
-            3 -> y = gameArea.height - 100
+            0 -> x = -100
+            1 -> x = gameArea.width
+            2 -> y = -100
+            3 -> y = gameArea.height
         }
+
         if (edge < 2) {
-            y = Random.nextInt(gameArea.height - 100)
+            y = Random.nextInt(gameArea.height)
         } else {
-            x = Random.nextInt(gameArea.width - 100)
+            x = Random.nextInt(gameArea.width)
         }
         return Pair(x, y)
     }
 
     private fun updateScore() {
         scoreTextView.text = "Score: $score"
+    }
+
+
+    override fun onResume() {
+        super.onResume()
+        accelerometer?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(this)
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
+
+            tiltX = -event.values[0]
+            tiltY = event.values[1]
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
     }
 }

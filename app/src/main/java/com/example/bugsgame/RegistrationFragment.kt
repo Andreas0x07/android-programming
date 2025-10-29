@@ -53,29 +53,27 @@ class RegistrationFragment : Fragment() {
         val tvOutput: TextView = view.findViewById(R.id.tvOutput)
         spPlayers = view.findViewById(R.id.spPlayers)
 
-        // Настройка Spinner для выбора курса
         val courses = arrayOf("1st Year", "2nd Year", "3rd Year", "4th Year")
         val courseAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, courses)
         courseAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spCourse.adapter = courseAdapter
 
-        // Загрузка списка игроков
         lifecycleScope.launch {
             DatabaseProvider.getDatabase(requireContext()).appDao().getAllPlayers()
                 .collectLatest { players ->
                     playersList.clear()
                     playersList.addAll(players)
-                    val playerNames = listOf("Выберите игрока") + players.map { it.fullName }
-                    val playerAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, playerNames)
+                    val playerNames = listOf("Choose player") + players.map { it.fullName }
+                    val playerAdapter =
+                        ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, playerNames)
                     playerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                     spPlayers.adapter = playerAdapter
                 }
         }
 
-        // Выбор игрока через кнопку
         btnSelectPlayer.setOnClickListener {
             val selectedPosition = spPlayers.selectedItemPosition
-            if (selectedPosition > 0) { // Пропускаем "Выберите игрока"
+            if (selectedPosition > 0) {
                 selectedPlayer = playersList[selectedPosition - 1]
                 selectedPlayer?.let { player ->
                     etFullName.setText(player.fullName)
@@ -85,30 +83,33 @@ class RegistrationFragment : Fragment() {
                     cvBirthDate.date = player.birthDate
                     playerData.zodiac = player.zodiac
                     ivZodiac.setImageResource(getZodiacImage(player.zodiac))
-                    Toast.makeText(context, "Игрок ${player.fullName} выбран", Toast.LENGTH_SHORT).show()
+
+                    val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
+                    sharedPrefs.edit().putInt("currentPlayerId", player.id).apply()
+
+                    Toast.makeText(context, "Player ${player.fullName} chosen", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Toast.makeText(context, "Пожалуйста, выберите игрока из списка", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Please select a player from the player list", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Изменение даты рождения
+
         cvBirthDate.setOnDateChangeListener { _, year, month, day ->
             playerData.birthDate.set(year, month, day)
             playerData.zodiac = getZodiacSign(playerData.birthDate)
             ivZodiac.setImageResource(getZodiacImage(playerData.zodiac))
         }
 
-        // Сохранение игрока
         btnSubmit.setOnClickListener {
             playerData.fullName = etFullName.text.toString()
             if (playerData.fullName.isBlank()) {
-                Toast.makeText(context, "Введите имя игрока", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Input player name", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             val selectedGenderId = rgGender.checkedRadioButtonId
             if (selectedGenderId == -1) {
-                Toast.makeText(context, "Выберите пол", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Choose gender", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             playerData.gender = if (selectedGenderId == R.id.rbMale) "Male" else "Female"
@@ -130,13 +131,12 @@ class RegistrationFragment : Fragment() {
                     )
                     db.insertPlayer(newPlayer)
                     playerId = db.getPlayerByName(playerData.fullName)?.id ?: 0
-                    Toast.makeText(context, "Игрок сохранён!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Player saved!", Toast.LENGTH_SHORT).show()
                 } else {
                     playerId = existingPlayer.id
-                    Toast.makeText(context, "Игрок с таким именем уже существует!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "A Player with that name already exists!", Toast.LENGTH_SHORT).show()
                 }
 
-                // Сохранение ID текущего игрока
                 val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
                 sharedPrefs.edit().putInt("currentPlayerId", playerId).apply()
 
@@ -151,7 +151,6 @@ class RegistrationFragment : Fragment() {
             }
         }
 
-        // Очистка полей по умолчанию
         clearForm()
 
         return view
@@ -206,4 +205,3 @@ class RegistrationFragment : Fragment() {
         }
     }
 }
-

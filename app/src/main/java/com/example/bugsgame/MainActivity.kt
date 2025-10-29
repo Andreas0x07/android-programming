@@ -25,7 +25,7 @@ class MainActivity : AppCompatActivity() {
                 2 -> "Rules"
                 3 -> "Authors"
                 4 -> "Settings"
-                5 -> "Scores" // Новая вкладка
+                5 -> "Scores"
                 else -> null
             }
         }.attach()

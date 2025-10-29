@@ -6,7 +6,7 @@ import androidx.viewpager2.adapter.FragmentStateAdapter
 
 class ViewPagerAdapter(fragmentActivity: FragmentActivity) : FragmentStateAdapter(fragmentActivity) {
 
-    override fun getItemCount(): Int = 6 // Увеличиваем до 6 вкладок
+    override fun getItemCount(): Int = 6
 
     override fun createFragment(position: Int): Fragment {
         return when (position) {
@@ -15,7 +15,7 @@ class ViewPagerAdapter(fragmentActivity: FragmentActivity) : FragmentStateAdapte
             2 -> RulesFragment()
             3 -> AuthorsFragment()
             4 -> SettingsFragment()
-            5 -> ScoresFragment() // Новая вкладка
+            5 -> ScoresFragment()
             else -> RegistrationFragment()
         }
     }

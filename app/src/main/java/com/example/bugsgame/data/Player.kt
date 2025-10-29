@@ -4,7 +4,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.Calendar
 
-// Сущность для хранения данных игрока
 @Entity(tableName = "players")
 data class Player(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -12,16 +11,15 @@ data class Player(
     val gender: String,
     val course: String,
     val difficulty: Int,
-    val birthDate: Long, // Храним дату как Long (время в миллисекундах)
+    val birthDate: Long,
     val zodiac: String
 )
 
-// Сущность для хранения рекордов
 @Entity(tableName = "scores")
 data class Score(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val playerId: Int, // Связь с игроком
+    val playerId: Int,
     val score: Int,
     val difficulty: Int,
-    val timestamp: Long // Время достижения рекорда
+    val timestamp: Long
 )

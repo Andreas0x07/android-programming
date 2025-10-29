@@ -33,6 +33,7 @@ class AuthorsFragment : Fragment() {
 
     private inner class AuthorsAdapter(
         private val names: Array<String>,
+
         private val photos: IntArray
     ) : BaseAdapter() {
 
