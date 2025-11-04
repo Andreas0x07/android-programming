@@ -10,7 +10,6 @@ data class Player(
     val fullName: String,
     val gender: String,
     val course: String,
-    val difficulty: Int,
     val birthDate: Long,
     val zodiac: String
 )
@@ -21,5 +20,8 @@ data class Score(
     val playerId: Int,
     val score: Int,
     val difficulty: Int,
-    val timestamp: Long
+    val timestamp: Long,
+    val gameSpeed: Int,
+    val bonusInterval: Int,
+    val roundDuration: Int
 )

@@ -33,6 +33,9 @@ interface AppDao {
         val score: Int,
         val difficulty: Int,
         val timestamp: Long,
-        val fullName: String
+        val fullName: String,
+        val gameSpeed: Int,
+        val bonusInterval: Int,
+        val roundDuration: Int
     )
 }

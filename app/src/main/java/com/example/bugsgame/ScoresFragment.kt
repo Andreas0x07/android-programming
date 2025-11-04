@@ -1,5 +1,6 @@
 package com.example.bugsgame
 
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -54,16 +55,27 @@ class ScoresFragment : Fragment() {
 
             val tvScore: TextView = view.findViewById(R.id.tvScore)
             val tvPlayerName: TextView = view.findViewById(R.id.tvPlayerName)
-            val tvDifficulty: TextView = view.findViewById(R.id.tvDifficulty)
             val tvDate: TextView = view.findViewById(R.id.tvDate)
+            val tvGameSpeed: TextView = view.findViewById(R.id.tvGameSpeed)
+            val tvMaxCockroaches: TextView = view.findViewById(R.id.tvMaxCockroaches)
+            val tvBonusInterval: TextView = view.findViewById(R.id.tvBonusInterval)
+            val tvRoundDuration: TextView = view.findViewById(R.id.tvRoundDuration)
+
 
             val score = scores[position]
             tvScore.text = "Очки: ${score.score}"
+            tvScore.setTypeface(null, Typeface.BOLD)
+
             tvPlayerName.text = "Игрок: ${score.fullName}"
-            tvDifficulty.text = "Сложность: ${score.difficulty}"
             tvDate.text = "Дата: ${
                 SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(score.timestamp))
             }"
+
+            tvGameSpeed.text = "Game speed: ${score.gameSpeed}"
+            tvMaxCockroaches.text = "Max cockroaches on screen: ${score.difficulty}"
+            tvBonusInterval.text = "Bonus appearance interval: ${score.bonusInterval}s"
+            tvRoundDuration.text = "Round duration: ${score.roundDuration}s"
+
 
             return view
         }

@@ -20,7 +20,6 @@ class RegistrationFragment : Fragment() {
         var fullName: String = "",
         var gender: String = "",
         var course: String = "",
-        var difficulty: Int = 0,
         var birthDate: Calendar = Calendar.getInstance(),
         var zodiac: String = ""
     )
@@ -32,7 +31,6 @@ class RegistrationFragment : Fragment() {
     private lateinit var etFullName: EditText
     private lateinit var rgGender: RadioGroup
     private lateinit var spCourse: Spinner
-    private lateinit var sbDifficulty: SeekBar
     private lateinit var cvBirthDate: CalendarView
     private lateinit var ivZodiac: ImageView
 
@@ -45,7 +43,6 @@ class RegistrationFragment : Fragment() {
         etFullName = view.findViewById(R.id.etFullName)
         rgGender = view.findViewById(R.id.rgGender)
         spCourse = view.findViewById(R.id.spCourse)
-        sbDifficulty = view.findViewById(R.id.sbDifficulty)
         cvBirthDate = view.findViewById(R.id.cvBirthDate)
         ivZodiac = view.findViewById(R.id.ivZodiac)
         val btnSubmit: Button = view.findViewById(R.id.btnSubmit)
@@ -79,7 +76,6 @@ class RegistrationFragment : Fragment() {
                     etFullName.setText(player.fullName)
                     rgGender.check(if (player.gender == "Male") R.id.rbMale else R.id.rbFemale)
                     spCourse.setSelection(courses.indexOf(player.course))
-                    sbDifficulty.progress = player.difficulty
                     cvBirthDate.date = player.birthDate
                     playerData.zodiac = player.zodiac
                     ivZodiac.setImageResource(getZodiacImage(player.zodiac))
@@ -114,7 +110,6 @@ class RegistrationFragment : Fragment() {
             }
             playerData.gender = if (selectedGenderId == R.id.rbMale) "Male" else "Female"
             playerData.course = spCourse.selectedItem?.toString() ?: ""
-            playerData.difficulty = sbDifficulty.progress
 
             lifecycleScope.launch {
                 val db = DatabaseProvider.getDatabase(requireContext()).appDao()
@@ -125,7 +120,6 @@ class RegistrationFragment : Fragment() {
                         fullName = playerData.fullName,
                         gender = playerData.gender,
                         course = playerData.course,
-                        difficulty = playerData.difficulty,
                         birthDate = playerData.birthDate.timeInMillis,
                         zodiac = playerData.zodiac
                     )
@@ -144,7 +138,6 @@ class RegistrationFragment : Fragment() {
                     Full Name: ${playerData.fullName}
                     Gender: ${playerData.gender}
                     Course: ${playerData.course}
-                    Difficulty: ${playerData.difficulty}
                     Birth Date: ${playerData.birthDate.get(Calendar.DAY_OF_MONTH)}/${playerData.birthDate.get(Calendar.MONTH) + 1}/${playerData.birthDate.get(Calendar.YEAR)}
                     Zodiac: ${playerData.zodiac}
                 """.trimIndent()
@@ -160,7 +153,6 @@ class RegistrationFragment : Fragment() {
         etFullName.setText("")
         rgGender.clearCheck()
         spCourse.setSelection(0)
-        sbDifficulty.progress = 0
         playerData.birthDate = Calendar.getInstance()
         cvBirthDate.date = playerData.birthDate.timeInMillis
         playerData.zodiac = getZodiacSign(playerData.birthDate)
