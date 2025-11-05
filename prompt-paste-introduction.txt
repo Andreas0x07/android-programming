@@ -1,0 +1,5 @@
+I have to do a project in University. It consists of 8 assignments that build on each other. I attached the project steps and their requirements as a file to this message. I don't remember which of the 8 steps I am currently on, because I am working with other people. I attached the contents of relevant project files to this message. My question(s) right now is/are:
+
+Did I attach all the relevant files for you to be able to help me with coding? If now, specify which files you would like know the contents of. (I didn't attach every single file due to ai chat token context constraints, so keep that in mind)
+
+The second question is: Considering the functionality that is/should be present in the project, is there a major issue/problem/bug? I am asking since I mostly didn't code it myself, but a friend of mine did. And I don't know how well he managed create good source code and if he fulfilled all the assignment requirements up until the current step of the project.

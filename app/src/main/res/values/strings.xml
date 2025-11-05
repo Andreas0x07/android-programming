@@ -5,4 +5,5 @@
         <item>Andreas Weibert</item>
         <item>Grogiy Savchenko</item>
     </string-array>
+    <string name="widget_description">Shows CBR Gold Rate</string>
 </resources>

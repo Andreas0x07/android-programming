@@ -40,6 +40,7 @@ class GameFragment : Fragment(), SensorEventListener {
     private var score = 0
     private var bugCount = 0
     private var bonusCount = 0
+    private var goldenBugCount = 0
     private val handler = Handler(Looper.getMainLooper())
     private var isGameRunning = false
     private lateinit var settings: SettingsFragment.GameSettings
@@ -57,6 +58,9 @@ class GameFragment : Fragment(), SensorEventListener {
     private lateinit var soundPool: SoundPool
     private var screamSoundId: Int = 0
 
+    private val BUG_SIZE = 100f
+    private val GOLDEN_BUG_SIZE = 120f
+
     private val gameLoop = object : Runnable {
         override fun run() {
             if (!isGameRunning) return
@@ -65,10 +69,17 @@ class GameFragment : Fragment(), SensorEventListener {
             val gameWidth = gameArea.width
             val gameHeight = gameArea.height
 
+            if (gameWidth == 0 || gameHeight == 0) {
+                handler.postDelayed(this, 16)
+                return
+            }
+
             for (bug in bugVelocities.keys) {
                 val velocity = bugVelocities[bug] ?: continue
-                val bugWidth = bug.width.toFloat()
-                val bugHeight = bug.height.toFloat()
+
+                val bugSize = if (bug.tag == "golden_bug") GOLDEN_BUG_SIZE else BUG_SIZE
+                val bugWidth = bugSize
+                val bugHeight = bugSize
 
                 var newX = bug.x + velocity.vx
                 var newY = bug.y + velocity.vy
@@ -116,8 +127,11 @@ class GameFragment : Fragment(), SensorEventListener {
             for (bug in bugsToRemove) {
                 gameArea.removeView(bug)
                 bugVelocities.remove(bug)
-                if (bug.tag == "bug") bugCount--
-                else if (bug.tag == "bonus") bonusCount--
+                when (bug.tag) {
+                    "bug" -> bugCount--
+                    "bonus" -> bonusCount--
+                    "golden_bug" -> goldenBugCount--
+                }
             }
 
             handler.postDelayed(this, 16)
@@ -127,8 +141,10 @@ class GameFragment : Fragment(), SensorEventListener {
 
     private val bugSpawner = object : Runnable {
         override fun run() {
-            if (isGameRunning && bugCount < settings.maxCockroaches) {
-                spawnBug()
+            if (isGameRunning) {
+                if (bugCount < settings.maxCockroaches) {
+                    spawnBug()
+                }
                 val upperDelay = max(501L, 1500 - settings.bonusInterval * 50L)
                 val randomDelay = Random.nextLong(500, upperDelay)
                 handler.postDelayed(this, randomDelay)
@@ -142,6 +158,15 @@ class GameFragment : Fragment(), SensorEventListener {
                 spawnBonus()
                 val safeInterval = max(1, settings.bonusInterval) * 1000L
                 handler.postDelayed(this, safeInterval)
+            }
+        }
+    }
+
+    private val goldenBugSpawner = object : Runnable {
+        override fun run() {
+            if (isGameRunning) {
+                spawnGoldenBug()
+                handler.postDelayed(this, 20000L)
             }
         }
     }
@@ -195,7 +220,6 @@ class GameFragment : Fragment(), SensorEventListener {
         try {
             screamSoundId = soundPool.load(requireContext(), R.raw.scream, 1)
         } catch (e: Exception) {
-            // Sound file not found
         }
 
         return view
@@ -211,12 +235,14 @@ class GameFragment : Fragment(), SensorEventListener {
         score = 0
         bugCount = 0
         bonusCount = 0
+        goldenBugCount = 0
         updateScore()
         isGameRunning = true
 
         handler.post(bugSpawner)
         val safeInitialInterval = max(1, settings.bonusInterval) * 1000L
         handler.postDelayed(bonusSpawner, safeInitialInterval)
+        handler.postDelayed(goldenBugSpawner, 20000L)
         handler.post(gameLoop)
 
         val safeDuration = max(1, settings.roundDuration) * 1000L
@@ -235,6 +261,7 @@ class GameFragment : Fragment(), SensorEventListener {
         isGameRunning = false
         handler.removeCallbacks(bugSpawner)
         handler.removeCallbacks(bonusSpawner)
+        handler.removeCallbacks(goldenBugSpawner)
         handler.removeCallbacks(gameLoop)
 
         timerTextView.text = "Time: 0"
@@ -268,10 +295,11 @@ class GameFragment : Fragment(), SensorEventListener {
     private fun spawnBug() {
         val bug = ImageView(context)
         bug.setImageResource(R.drawable.bug)
-        bug.layoutParams = ViewGroup.LayoutParams(100, 100)
+        bug.layoutParams = ViewGroup.LayoutParams(BUG_SIZE.toInt(), BUG_SIZE.toInt())
         bug.tag = "bug"
 
         bug.setOnClickListener {
+            if (!isGameRunning) return@setOnClickListener
             score += 10
             bugCount--
             updateScore()
@@ -296,10 +324,11 @@ class GameFragment : Fragment(), SensorEventListener {
         if (bonusCount >= 1) return
         val bonus = ImageView(context)
         bonus.setImageResource(R.drawable.bonus_bug)
-        bonus.layoutParams = ViewGroup.LayoutParams(100, 100)
+        bonus.layoutParams = ViewGroup.LayoutParams(BUG_SIZE.toInt(), BUG_SIZE.toInt())
         bonus.tag = "bonus"
 
         bonus.setOnClickListener {
+            if (!isGameRunning) return@setOnClickListener
             score += 50
             bonusCount--
             updateScore()
@@ -319,6 +348,40 @@ class GameFragment : Fragment(), SensorEventListener {
         bugVelocities[bonus] = Velocity(vx, vy)
         val angle = atan2(vy.toDouble(), vx.toDouble()) * (180 / Math.PI)
         bonus.rotation = angle.toFloat() + 90f
+    }
+
+    private fun spawnGoldenBug() {
+        if (goldenBugCount >= 1) return
+        val bug = ImageView(context)
+        bug.setImageResource(R.drawable.bonus_bug)
+        bug.setColorFilter(android.graphics.Color.YELLOW)
+        bug.layoutParams = ViewGroup.LayoutParams(GOLDEN_BUG_SIZE.toInt(), GOLDEN_BUG_SIZE.toInt())
+        bug.tag = "golden_bug"
+
+        bug.setOnClickListener {
+            if (!isGameRunning) return@setOnClickListener
+            val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
+            val goldRate = sharedPrefs.getFloat("gold_rate", 5000f)
+            val points = (goldRate / 100).toInt()
+            score += points
+            goldenBugCount--
+            updateScore()
+            gameArea.removeView(bug)
+            bugVelocities.remove(bug)
+            Toast.makeText(context, "+$points (Gold!)", Toast.LENGTH_SHORT).show()
+        }
+
+        val (startX, startY) = getRandomEdgePosition()
+        bug.x = startX.toFloat()
+        bug.y = startY.toFloat()
+
+        gameArea.addView(bug)
+        goldenBugCount++
+
+        val (vx, vy) = getInitialVelocity(bug.x, bug.y)
+        bugVelocities[bug] = Velocity(vx, vy)
+        val angle = atan2(vy.toDouble(), vx.toDouble()) * (180 / Math.PI)
+        bug.rotation = angle.toFloat() + 90f
     }
 
 
@@ -405,4 +468,3 @@ class GameFragment : Fragment(), SensorEventListener {
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
     }
 }
-

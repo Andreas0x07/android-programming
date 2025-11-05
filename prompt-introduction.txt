@@ -1,0 +1,6 @@
+I have to do a project in University. It consists of 8 assignments that build on each other. I am currently on step 6.
+
+
+Please send the updated script files completely and not just snippets of code, so that I can directly replace the specific file with the new version.
+
+Also, don't write any comments in the code.

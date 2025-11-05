@@ -1,0 +1,2032 @@
+I have to do a project in University. It consists of 8 assignments that build on each other. I am currently on step 6.
+
+
+Please send the updated script files completely and not just snippets of code, so that I can directly replace the specific file with the new version.
+
+Also, don't write any comments in the code.
+
+================================================================================
+
+build.gradle.kts:
+plugins {
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.android) apply false
+}
+
+================================================================================
+
+gradle.properties:
+# Project-wide Gradle settings.
+# IDE (e.g. Android Studio) users:
+# Gradle settings configured through the IDE *will override*
+# any settings specified in this file.
+# For more details on how to configure your build environment visit
+# http://www.gradle.org/docs/current/userguide/build_environment.html
+# Specifies the JVM arguments used for the daemon process.
+# The setting is particularly useful for tweaking memory settings.
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8 -Dkotlin.daemon.jvm.options=-Xmx2g
+# When configured, Gradle will run in incubating parallel mode.
+# This option should only be used with decoupled projects. For more details, visit
+# https://developer.android.com/r/tools/gradle-multi-project-decoupled-projects
+# org.gradle.parallel=true
+# AndroidX package structure to make it clearer which packages are bundled with the
+# Android operating system, and which are packaged with your app's APK
+# https://developer.android.com/topic/libraries/support-library/androidx-rn
+android.useAndroidX=true
+# Kotlin code style for this project: "official" or "obsolete":
+kotlin.code.style=official
+# Enables namespacing of each library's R class so that its R class includes only the
+# resources declared in the library itself and none from the library's dependencies,
+# thereby reducing the size of the R class for that library
+android.nonTransitiveRClass=true
+
+================================================================================
+
+settings.gradle.kts:
+pluginManagement {
+    repositories {
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "BugsGame"
+include(":app")
+
+
+================================================================================
+
+app/.gitignore:
+/build
+
+================================================================================
+
+app/build.gradle.kts:
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    id("kotlin-kapt")
+}
+
+android {
+    namespace = "com.example.bugsgame"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.example.bugsgame"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+    buildFeatures {
+        viewBinding = true
+    }
+}
+
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+    implementation(libs.androidx.activity)
+    implementation(libs.androidx.constraintlayout)
+    implementation("androidx.viewpager2:viewpager2:1.1.0")
+
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
+
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-simplexml:2.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
+
+
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+}
+
+================================================================================
+
+app/src/main/AndroidManifest.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.BugsGame"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".widget.GoldRateWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/gold_rate_widget_info" />
+        </receiver>
+
+    </application>
+
+</manifest>
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/AuthorsFragment.kt:
+package com.example.bugsgame
+
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.BaseAdapter
+import android.widget.ImageView
+import android.widget.ListView
+import android.widget.TextView
+import androidx.fragment.app.Fragment
+
+class AuthorsFragment : Fragment() {
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_authors, container, false)
+        val listView: ListView = view.findViewById(R.id.lvAuthors)
+
+        val authorNames = resources.getStringArray(R.array.author_names)
+        val authorPhotos = intArrayOf(
+            R.drawable.weibert,
+            R.drawable.savchenko
+        )
+
+        val adapter = AuthorsAdapter(authorNames, authorPhotos)
+        listView.adapter = adapter
+
+        return view
+    }
+
+    private inner class AuthorsAdapter(
+        private val names: Array<String>,
+
+        private val photos: IntArray
+    ) : BaseAdapter() {
+
+        override fun getCount(): Int = names.size
+
+        override fun getItem(position: Int): Any = names[position]
+
+        override fun getItemId(position: Int): Long = position.toLong()
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
+            val view = convertView ?: LayoutInflater.from(context).inflate(
+                R.layout.item_author, parent, false
+            )
+            val ivPhoto: ImageView = view.findViewById(R.id.ivAuthorPhoto)
+            val tvName: TextView = view.findViewById(R.id.tvAuthorName)
+
+            tvName.text = names[position]
+            ivPhoto.setImageResource(photos[position])
+
+            return view
+        }
+    }
+}
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/GameFragment.kt:
+package com.example.bugsgame
+
+import android.content.Context
+import android.graphics.Typeface
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.media.AudioAttributes
+import android.media.SoundPool
+import android.os.Bundle
+import android.os.CountDownTimer
+import android.os.Handler
+import android.os.Looper
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.RelativeLayout
+import android.widget.TextView
+import android.widget.Toast
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import com.example.bugsgame.data.DatabaseProvider
+import com.example.bugsgame.data.Score
+import kotlinx.coroutines.launch
+import java.lang.Exception
+import kotlin.math.atan2
+import kotlin.math.max
+import kotlin.random.Random
+
+class GameFragment : Fragment(), SensorEventListener {
+
+    private lateinit var gameArea: RelativeLayout
+    private lateinit var scoreTextView: TextView
+    private lateinit var timerTextView: TextView
+    private lateinit var startButton: Button
+
+    private var score = 0
+    private var bugCount = 0
+    private var bonusCount = 0
+    private var goldenBugCount = 0
+    private val handler = Handler(Looper.getMainLooper())
+    private var isGameRunning = false
+    private lateinit var settings: SettingsFragment.GameSettings
+    private var currentPlayerId: Int? = null
+
+    private lateinit var sensorManager: SensorManager
+    private var accelerometer: Sensor? = null
+    private var isBonusActive = false
+    private var tiltX: Float = 0f
+    private var tiltY: Float = 0f
+
+    private data class Velocity(var vx: Float, var vy: Float)
+    private val bugVelocities = mutableMapOf<ImageView, Velocity>()
+
+    private lateinit var soundPool: SoundPool
+    private var screamSoundId: Int = 0
+
+    private val BUG_SIZE = 100f
+    private val GOLDEN_BUG_SIZE = 120f
+
+    private val gameLoop = object : Runnable {
+        override fun run() {
+            if (!isGameRunning) return
+
+            val bugsToRemove = mutableListOf<ImageView>()
+            val gameWidth = gameArea.width
+            val gameHeight = gameArea.height
+
+            if (gameWidth == 0 || gameHeight == 0) {
+                handler.postDelayed(this, 16)
+                return
+            }
+
+            for (bug in bugVelocities.keys) {
+                val velocity = bugVelocities[bug] ?: continue
+
+                val bugSize = if (bug.tag == "golden_bug") GOLDEN_BUG_SIZE else BUG_SIZE
+                val bugWidth = bugSize
+                val bugHeight = bugSize
+
+                var newX = bug.x + velocity.vx
+                var newY = bug.y + velocity.vy
+
+                if (isBonusActive) {
+                    val isPartiallyInside = bug.x + bugWidth > 0 && bug.x < gameWidth &&
+                            bug.y + bugHeight > 0 && bug.y < gameHeight
+
+                    if (isPartiallyInside) {
+                        newX += tiltX * 2.0f
+                        newY += tiltY * 2.0f
+
+                        if (newX < 0f) {
+                            newX = 0f
+                        } else if (newX > gameWidth - bugWidth) {
+                            newX = (gameWidth - bugWidth)
+                        }
+
+                        if (newY < 0f) {
+                            newY = 0f
+                        } else if (newY > gameHeight - bugHeight) {
+                            newY = (gameHeight - bugHeight)
+                        }
+
+                        bug.x = newX
+                        bug.y = newY
+                    } else {
+                        if (newX < -bugWidth || newX > gameWidth || newY < -bugHeight || newY > gameHeight) {
+                            bugsToRemove.add(bug)
+                        } else {
+                            bug.x = newX
+                            bug.y = newY
+                        }
+                    }
+                } else {
+                    if (newX < -bugWidth || newX > gameWidth || newY < -bugHeight || newY > gameHeight) {
+                        bugsToRemove.add(bug)
+                    } else {
+                        bug.x = newX
+                        bug.y = newY
+                    }
+                }
+            }
+
+            for (bug in bugsToRemove) {
+                gameArea.removeView(bug)
+                bugVelocities.remove(bug)
+                when (bug.tag) {
+                    "bug" -> bugCount--
+                    "bonus" -> bonusCount--
+                    "golden_bug" -> goldenBugCount--
+                }
+            }
+
+            handler.postDelayed(this, 16)
+        }
+    }
+
+
+    private val bugSpawner = object : Runnable {
+        override fun run() {
+            if (isGameRunning) {
+                if (bugCount < settings.maxCockroaches) {
+                    spawnBug()
+                }
+                val upperDelay = max(501L, 1500 - settings.bonusInterval * 50L)
+                val randomDelay = Random.nextLong(500, upperDelay)
+                handler.postDelayed(this, randomDelay)
+            }
+        }
+    }
+
+    private val bonusSpawner = object : Runnable {
+        override fun run() {
+            if (isGameRunning) {
+                spawnBonus()
+                val safeInterval = max(1, settings.bonusInterval) * 1000L
+                handler.postDelayed(this, safeInterval)
+            }
+        }
+    }
+
+    private val goldenBugSpawner = object : Runnable {
+        override fun run() {
+            if (isGameRunning) {
+                spawnGoldenBug()
+                handler.postDelayed(this, 20000L)
+            }
+        }
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_game, container, false)
+
+        gameArea = view.findViewById(R.id.gameArea)
+        scoreTextView = view.findViewById(R.id.tvScore)
+        timerTextView = view.findViewById(R.id.tvTimer)
+        startButton = view.findViewById(R.id.btnStartGame)
+
+        sensorManager = requireContext().getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+        val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
+        settings = SettingsFragment.GameSettings(
+            gameSpeed = sharedPrefs.getInt("gameSpeed", 50),
+            maxCockroaches = sharedPrefs.getInt("maxCockroaches", 10),
+            bonusInterval = sharedPrefs.getInt("bonusInterval", 15),
+            roundDuration = sharedPrefs.getInt("roundDuration", 60)
+        )
+
+        startButton.setOnClickListener {
+            if (currentPlayerId == null) {
+                Toast.makeText(context, "Пожалуйста, выберите или зарегистрируйте игрока!", Toast.LENGTH_SHORT).show()
+            } else {
+                startGame()
+            }
+        }
+
+        gameArea.setOnClickListener {
+            if (isGameRunning) {
+                score -= 5
+                updateScore()
+            }
+        }
+
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_GAME)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        soundPool = SoundPool.Builder()
+            .setMaxStreams(2)
+            .setAudioAttributes(audioAttributes)
+            .build()
+
+        try {
+            screamSoundId = soundPool.load(requireContext(), R.raw.scream, 1)
+        } catch (e: Exception) {
+        }
+
+        return view
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        soundPool.release()
+    }
+
+    private fun startGame() {
+        startButton.visibility = View.GONE
+        score = 0
+        bugCount = 0
+        bonusCount = 0
+        goldenBugCount = 0
+        updateScore()
+        isGameRunning = true
+
+        handler.post(bugSpawner)
+        val safeInitialInterval = max(1, settings.bonusInterval) * 1000L
+        handler.postDelayed(bonusSpawner, safeInitialInterval)
+        handler.postDelayed(goldenBugSpawner, 20000L)
+        handler.post(gameLoop)
+
+        val safeDuration = max(1, settings.roundDuration) * 1000L
+        object : CountDownTimer(safeDuration, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                timerTextView.text = "Time: ${millisUntilFinished / 1000}"
+            }
+
+            override fun onFinish() {
+                endGame()
+            }
+        }.start()
+    }
+
+    private fun endGame() {
+        isGameRunning = false
+        handler.removeCallbacks(bugSpawner)
+        handler.removeCallbacks(bonusSpawner)
+        handler.removeCallbacks(goldenBugSpawner)
+        handler.removeCallbacks(gameLoop)
+
+        timerTextView.text = "Time: 0"
+        startButton.visibility = View.VISIBLE
+        startButton.text = "Play Again"
+
+        gameArea.removeAllViews()
+        bugVelocities.clear()
+        isBonusActive = false
+        tiltX = 0f
+        tiltY = 0f
+
+        currentPlayerId?.let { playerId ->
+            lifecycleScope.launch {
+                val db = DatabaseProvider.getDatabase(requireContext()).appDao()
+                val scoreEntry = Score(
+                    playerId = playerId,
+                    score = score,
+                    difficulty = settings.maxCockroaches,
+                    timestamp = System.currentTimeMillis(),
+                    gameSpeed = settings.gameSpeed,
+                    bonusInterval = settings.bonusInterval,
+                    roundDuration = settings.roundDuration
+                )
+                db.insertScore(scoreEntry)
+                Toast.makeText(context, "Очки сохранены!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun spawnBug() {
+        val bug = ImageView(context)
+        bug.setImageResource(R.drawable.bug)
+        bug.layoutParams = ViewGroup.LayoutParams(BUG_SIZE.toInt(), BUG_SIZE.toInt())
+        bug.tag = "bug"
+
+        bug.setOnClickListener {
+            if (!isGameRunning) return@setOnClickListener
+            score += 10
+            bugCount--
+            updateScore()
+            gameArea.removeView(bug)
+            bugVelocities.remove(bug)
+        }
+
+        val (startX, startY) = getRandomEdgePosition()
+        bug.x = startX.toFloat()
+        bug.y = startY.toFloat()
+
+        gameArea.addView(bug)
+        bugCount++
+
+        val (vx, vy) = getInitialVelocity(bug.x, bug.y)
+        bugVelocities[bug] = Velocity(vx, vy)
+        val angle = atan2(vy.toDouble(), vx.toDouble()) * (180 / Math.PI)
+        bug.rotation = angle.toFloat() + 90f
+    }
+
+    private fun spawnBonus() {
+        if (bonusCount >= 1) return
+        val bonus = ImageView(context)
+        bonus.setImageResource(R.drawable.bonus_bug)
+        bonus.layoutParams = ViewGroup.LayoutParams(BUG_SIZE.toInt(), BUG_SIZE.toInt())
+        bonus.tag = "bonus"
+
+        bonus.setOnClickListener {
+            if (!isGameRunning) return@setOnClickListener
+            score += 50
+            bonusCount--
+            updateScore()
+            gameArea.removeView(bonus)
+            bugVelocities.remove(bonus)
+            activateTiltBonus()
+        }
+
+        val (startX, startY) = getRandomEdgePosition()
+        bonus.x = startX.toFloat()
+        bonus.y = startY.toFloat()
+
+        gameArea.addView(bonus)
+        bonusCount++
+
+        val (vx, vy) = getInitialVelocity(bonus.x, bonus.y)
+        bugVelocities[bonus] = Velocity(vx, vy)
+        val angle = atan2(vy.toDouble(), vx.toDouble()) * (180 / Math.PI)
+        bonus.rotation = angle.toFloat() + 90f
+    }
+
+    private fun spawnGoldenBug() {
+        if (goldenBugCount >= 1) return
+        val bug = ImageView(context)
+        bug.setImageResource(R.drawable.bonus_bug)
+        bug.setColorFilter(android.graphics.Color.YELLOW)
+        bug.layoutParams = ViewGroup.LayoutParams(GOLDEN_BUG_SIZE.toInt(), GOLDEN_BUG_SIZE.toInt())
+        bug.tag = "golden_bug"
+
+        bug.setOnClickListener {
+            if (!isGameRunning) return@setOnClickListener
+            val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
+            val goldRate = sharedPrefs.getFloat("gold_rate", 5000f)
+            val points = (goldRate / 100).toInt()
+            score += points
+            goldenBugCount--
+            updateScore()
+            gameArea.removeView(bug)
+            bugVelocities.remove(bug)
+            Toast.makeText(context, "+$points (Gold!)", Toast.LENGTH_SHORT).show()
+        }
+
+        val (startX, startY) = getRandomEdgePosition()
+        bug.x = startX.toFloat()
+        bug.y = startY.toFloat()
+
+        gameArea.addView(bug)
+        goldenBugCount++
+
+        val (vx, vy) = getInitialVelocity(bug.x, bug.y)
+        bugVelocities[bug] = Velocity(vx, vy)
+        val angle = atan2(vy.toDouble(), vx.toDouble()) * (180 / Math.PI)
+        bug.rotation = angle.toFloat() + 90f
+    }
+
+
+    private fun getInitialVelocity(startX: Float, startY: Float): Velocity {
+        val endX = if (startX < gameArea.width / 2) gameArea.width.toFloat() + 100f else -100f
+        val endY = Random.nextInt(gameArea.height).toFloat()
+
+        val deltaX = endX - startX
+        val deltaY = endY - startY
+        val distance = kotlin.math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+        val speed = max(0.1f, settings.gameSpeed / 100f) * 10f
+
+        val vx = (deltaX / distance) * speed
+        val vy = (deltaY / distance) * speed
+
+        return Velocity(vx, vy)
+    }
+
+    private fun activateTiltBonus() {
+        if (isBonusActive) return
+        isBonusActive = true
+        Toast.makeText(context, "TILT BONUS ACTIVE!", Toast.LENGTH_SHORT).show()
+
+        if (screamSoundId != 0) {
+            soundPool.play(screamSoundId, 1.0f, 1.0f, 1, 0, 1.0f)
+        }
+
+        handler.postDelayed({
+            isBonusActive = false
+            tiltX = 0f
+            tiltY = 0f
+            Toast.makeText(context, "Tilt bonus ended", Toast.LENGTH_SHORT).show()
+        }, 15000)
+    }
+
+    private fun getRandomEdgePosition(): Pair<Int, Int> {
+        val edge = Random.nextInt(4)
+        var x = 0
+        var y = 0
+        when (edge) {
+            0 -> x = -100
+            1 -> x = gameArea.width
+            2 -> y = -100
+            3 -> y = gameArea.height
+        }
+
+        if (edge < 2) {
+            y = Random.nextInt(gameArea.height)
+        } else {
+            x = Random.nextInt(gameArea.width)
+        }
+        return Pair(x, y)
+    }
+
+    private fun updateScore() {
+        scoreTextView.text = "Score: $score"
+    }
+
+
+    override fun onResume() {
+        super.onResume()
+        accelerometer?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+        }
+
+        val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
+        currentPlayerId = sharedPrefs.getInt("currentPlayerId", -1).takeIf { it != -1 }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(this)
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
+
+            tiltX = -event.values[0]
+            tiltY = event.values[1]
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+    }
+}
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/MainActivity.kt:
+package com.example.bugsgame
+
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+import androidx.viewpager2.widget.ViewPager2
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
+
+class MainActivity : AppCompatActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        val viewPager: ViewPager2 = findViewById(R.id.viewPager)
+        val tabLayout: TabLayout = findViewById(R.id.tabLayout)
+
+        val adapter = ViewPagerAdapter(this)
+        viewPager.adapter = adapter
+
+        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+            tab.text = when (position) {
+                0 -> "Registration"
+                1 -> "Game"
+                2 -> "Rules"
+                3 -> "Authors"
+                4 -> "Settings"
+                5 -> "Scores"
+                else -> null
+            }
+        }.attach()
+    }
+}
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/RegistrationFragment.kt:
+package com.example.bugsgame
+
+import android.content.Context
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.*
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import com.example.bugsgame.data.DatabaseProvider
+import com.example.bugsgame.data.Player
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import java.util.*
+
+class RegistrationFragment : Fragment() {
+
+    data class PlayerData(
+        var fullName: String = "",
+        var gender: String = "",
+        var course: String = "",
+        var birthDate: Calendar = Calendar.getInstance(),
+        var zodiac: String = ""
+    )
+
+    private val playerData = PlayerData()
+    private lateinit var spPlayers: Spinner
+    private var selectedPlayer: com.example.bugsgame.data.Player? = null
+    private val playersList = mutableListOf<com.example.bugsgame.data.Player>()
+    private lateinit var etFullName: EditText
+    private lateinit var rgGender: RadioGroup
+    private lateinit var spCourse: Spinner
+    private lateinit var cvBirthDate: CalendarView
+    private lateinit var ivZodiac: ImageView
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_registration, container, false)
+
+        etFullName = view.findViewById(R.id.etFullName)
+        rgGender = view.findViewById(R.id.rgGender)
+        spCourse = view.findViewById(R.id.spCourse)
+        cvBirthDate = view.findViewById(R.id.cvBirthDate)
+        ivZodiac = view.findViewById(R.id.ivZodiac)
+        val btnSubmit: Button = view.findViewById(R.id.btnSubmit)
+        val btnSelectPlayer: Button = view.findViewById(R.id.btnSelectPlayer)
+        val tvOutput: TextView = view.findViewById(R.id.tvOutput)
+        spPlayers = view.findViewById(R.id.spPlayers)
+
+        val courses = arrayOf("1st Year", "2nd Year", "3rd Year", "4th Year")
+        val courseAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, courses)
+        courseAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spCourse.adapter = courseAdapter
+
+        lifecycleScope.launch {
+            DatabaseProvider.getDatabase(requireContext()).appDao().getAllPlayers()
+                .collectLatest { players ->
+                    playersList.clear()
+                    playersList.addAll(players)
+                    val playerNames = listOf("Choose player") + players.map { it.fullName }
+                    val playerAdapter =
+                        ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, playerNames)
+                    playerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                    spPlayers.adapter = playerAdapter
+                }
+        }
+
+        btnSelectPlayer.setOnClickListener {
+            val selectedPosition = spPlayers.selectedItemPosition
+            if (selectedPosition > 0) {
+                selectedPlayer = playersList[selectedPosition - 1]
+                selectedPlayer?.let { player ->
+                    etFullName.setText(player.fullName)
+                    rgGender.check(if (player.gender == "Male") R.id.rbMale else R.id.rbFemale)
+                    spCourse.setSelection(courses.indexOf(player.course))
+                    cvBirthDate.date = player.birthDate
+                    playerData.zodiac = player.zodiac
+                    ivZodiac.setImageResource(getZodiacImage(player.zodiac))
+
+                    val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
+                    sharedPrefs.edit().putInt("currentPlayerId", player.id).apply()
+
+                    Toast.makeText(context, "Player ${player.fullName} chosen", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(context, "Please select a player from the player list", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+
+        cvBirthDate.setOnDateChangeListener { _, year, month, day ->
+            playerData.birthDate.set(year, month, day)
+            playerData.zodiac = getZodiacSign(playerData.birthDate)
+            ivZodiac.setImageResource(getZodiacImage(playerData.zodiac))
+        }
+
+        btnSubmit.setOnClickListener {
+            playerData.fullName = etFullName.text.toString()
+            if (playerData.fullName.isBlank()) {
+                Toast.makeText(context, "Input player name", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val selectedGenderId = rgGender.checkedRadioButtonId
+            if (selectedGenderId == -1) {
+                Toast.makeText(context, "Choose gender", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            playerData.gender = if (selectedGenderId == R.id.rbMale) "Male" else "Female"
+            playerData.course = spCourse.selectedItem?.toString() ?: ""
+
+            lifecycleScope.launch {
+                val db = DatabaseProvider.getDatabase(requireContext()).appDao()
+                val existingPlayer = db.getPlayerByName(playerData.fullName)
+                val playerId: Int
+                if (existingPlayer == null) {
+                    val newPlayer = com.example.bugsgame.data.Player(
+                        fullName = playerData.fullName,
+                        gender = playerData.gender,
+                        course = playerData.course,
+                        birthDate = playerData.birthDate.timeInMillis,
+                        zodiac = playerData.zodiac
+                    )
+                    db.insertPlayer(newPlayer)
+                    playerId = db.getPlayerByName(playerData.fullName)?.id ?: 0
+                    Toast.makeText(context, "Player saved!", Toast.LENGTH_SHORT).show()
+                } else {
+                    playerId = existingPlayer.id
+                    Toast.makeText(context, "A Player with that name already exists!", Toast.LENGTH_SHORT).show()
+                }
+
+                val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
+                sharedPrefs.edit().putInt("currentPlayerId", playerId).apply()
+
+                tvOutput.text = """
+                    Full Name: ${playerData.fullName}
+                    Gender: ${playerData.gender}
+                    Course: ${playerData.course}
+                    Birth Date: ${playerData.birthDate.get(Calendar.DAY_OF_MONTH)}/${playerData.birthDate.get(Calendar.MONTH) + 1}/${playerData.birthDate.get(Calendar.YEAR)}
+                    Zodiac: ${playerData.zodiac}
+                """.trimIndent()
+            }
+        }
+
+        clearForm()
+
+        return view
+    }
+
+    private fun clearForm() {
+        etFullName.setText("")
+        rgGender.clearCheck()
+        spCourse.setSelection(0)
+        playerData.birthDate = Calendar.getInstance()
+        cvBirthDate.date = playerData.birthDate.timeInMillis
+        playerData.zodiac = getZodiacSign(playerData.birthDate)
+        ivZodiac.setImageResource(getZodiacImage(playerData.zodiac))
+        selectedPlayer = null
+    }
+
+    private fun getZodiacSign(date: Calendar): String {
+        val day = date.get(Calendar.DAY_OF_MONTH)
+        val month = date.get(Calendar.MONTH) + 1
+        return when {
+            (month == 3 && day >= 21) || (month == 4 && day <= 19) -> "Aries"
+            (month == 4 && day >= 20) || (month == 5 && day <= 20) -> "Taurus"
+            (month == 5 && day >= 21) || (month == 6 && day <= 20) -> "Gemini"
+            (month == 6 && day >= 21) || (month == 7 && day <= 22) -> "Cancer"
+            (month == 7 && day >= 23) || (month == 8 && day <= 22) -> "Leo"
+            (month == 8 && day >= 23) || (month == 9 && day <= 22) -> "Virgo"
+            (month == 9 && day >= 23) || (month == 10 && day <= 22) -> "Libra"
+            (month == 10 && day >= 23) || (month == 11 && day <= 21) -> "Scorpio"
+            (month == 11 && day >= 22) || (month == 12 && day <= 21) -> "Sagittarius"
+            (month == 12 && day >= 22) || (month == 1 && day <= 19) -> "Capricorn"
+            (month == 1 && day >= 20) || (month == 2 && day <= 18) -> "Aquarius"
+            else -> "Pisces"
+        }
+    }
+
+    private fun getZodiacImage(zodiac: String): Int {
+        return when (zodiac) {
+            "Aries" -> R.drawable.aries
+            "Taurus" -> R.drawable.taurus
+            "Gemini" -> R.drawable.gemini
+            "Cancer" -> R.drawable.cancer
+            "Leo" -> R.drawable.leo
+            "Virgo" -> R.drawable.virgo
+            "Libra" -> R.drawable.libra
+            "Scorpio" -> R.drawable.scorpio
+            "Sagittarius" -> R.drawable.sagittarius
+            "Capricorn" -> R.drawable.capricorn
+            "Aquarius" -> R.drawable.aquarius
+            "Pisces" -> R.drawable.pisces
+            else -> R.drawable.ic_launcher_background
+        }
+    }
+}
+
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/RulesFragment.kt:
+package com.example.bugsgame
+
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.webkit.WebView
+import androidx.fragment.app.Fragment
+import java.io.InputStream
+
+class RulesFragment : Fragment() {
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_rules, container, false)
+        val webView: WebView = view.findViewById(R.id.wvRules)
+
+        val inputStream: InputStream = resources.openRawResource(R.raw.rules)
+        val htmlContent = inputStream.bufferedReader().use { it.readText() }
+        webView.loadData(htmlContent, "text/html", "UTF-8")
+
+        return view
+    }
+}
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/ScoresFragment.kt:
+package com.example.bugsgame
+
+import android.graphics.Typeface
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.BaseAdapter
+import android.widget.ListView
+import android.widget.TextView
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import com.example.bugsgame.data.AppDao
+import com.example.bugsgame.data.DatabaseProvider
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
+
+class ScoresFragment : Fragment() {
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_scores, container, false)
+        val listView: ListView = view.findViewById(R.id.lvScores)
+
+        val adapter = ScoresAdapter()
+        listView.adapter = adapter
+
+        lifecycleScope.launch {
+            DatabaseProvider.getDatabase(requireContext()).appDao().getAllScores()
+                .collectLatest { scores ->
+                    adapter.updateScores(scores)
+                }
+        }
+
+        return view
+    }
+
+    private inner class ScoresAdapter : BaseAdapter() {
+        private val scores = mutableListOf<AppDao.ScoreWithPlayer>()
+
+        override fun getCount(): Int = scores.size
+
+        override fun getItem(position: Int): Any = scores[position]
+
+        override fun getItemId(position: Int): Long = position.toLong()
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
+            val view = convertView ?: LayoutInflater.from(parent?.context).inflate(
+                R.layout.item_score, parent, false
+            )
+
+            val tvScore: TextView = view.findViewById(R.id.tvScore)
+            val tvPlayerName: TextView = view.findViewById(R.id.tvPlayerName)
+            val tvDate: TextView = view.findViewById(R.id.tvDate)
+            val tvGameSpeed: TextView = view.findViewById(R.id.tvGameSpeed)
+            val tvMaxCockroaches: TextView = view.findViewById(R.id.tvMaxCockroaches)
+            val tvBonusInterval: TextView = view.findViewById(R.id.tvBonusInterval)
+            val tvRoundDuration: TextView = view.findViewById(R.id.tvRoundDuration)
+
+
+            val score = scores[position]
+            tvScore.text = "Очки: ${score.score}"
+            tvScore.setTypeface(null, Typeface.BOLD)
+
+            tvPlayerName.text = "Игрок: ${score.fullName}"
+            tvDate.text = "Дата: ${
+                SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(score.timestamp))
+            }"
+
+            tvGameSpeed.text = "Game speed: ${score.gameSpeed}"
+            tvMaxCockroaches.text = "Max cockroaches on screen: ${score.difficulty}"
+            tvBonusInterval.text = "Bonus appearance interval: ${score.bonusInterval}s"
+            tvRoundDuration.text = "Round duration: ${score.roundDuration}s"
+
+
+            return view
+        }
+
+        fun updateScores(newScores: List<AppDao.ScoreWithPlayer>) {
+            scores.clear()
+            scores.addAll(newScores)
+            notifyDataSetChanged()
+        }
+    }
+}
+
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/SettingsFragment.kt:
+package com.example.bugsgame
+
+import android.content.Context
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.EditText
+import android.widget.SeekBar
+import android.widget.Toast
+import androidx.fragment.app.Fragment
+
+class SettingsFragment : Fragment() {
+
+    data class GameSettings(
+        var gameSpeed: Int = 50,
+        var maxCockroaches: Int = 10,
+        var bonusInterval: Int = 15,
+        var roundDuration: Int = 60
+    )
+
+    private val settings = GameSettings()
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_settings, container, false)
+
+        val sbGameSpeed: SeekBar = view.findViewById(R.id.sbGameSpeed)
+        val etMaxCockroaches: EditText = view.findViewById(R.id.etMaxCockroaches)
+        val etBonusInterval: EditText = view.findViewById(R.id.etBonusInterval)
+        val etRoundDuration: EditText = view.findViewById(R.id.etRoundDuration)
+        val btnSaveSettings: Button = view.findViewById(R.id.btnSaveSettings)
+
+        val sharedPrefs = requireContext().getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
+        settings.gameSpeed = sharedPrefs.getInt("gameSpeed", 50)
+        settings.maxCockroaches = sharedPrefs.getInt("maxCockroaches", 10)
+        settings.bonusInterval = sharedPrefs.getInt("bonusInterval", 15)
+        settings.roundDuration = sharedPrefs.getInt("roundDuration", 60)
+
+        sbGameSpeed.progress = settings.gameSpeed
+        etMaxCockroaches.setText(settings.maxCockroaches.toString())
+        etBonusInterval.setText(settings.bonusInterval.toString())
+        etRoundDuration.setText(settings.roundDuration.toString())
+
+        btnSaveSettings.setOnClickListener {
+            settings.gameSpeed = sbGameSpeed.progress
+            settings.maxCockroaches = etMaxCockroaches.text.toString().toIntOrNull() ?: settings.maxCockroaches
+            settings.bonusInterval = etBonusInterval.text.toString().toIntOrNull() ?: settings.bonusInterval
+            settings.roundDuration = etRoundDuration.text.toString().toIntOrNull() ?: settings.roundDuration
+
+            with(sharedPrefs.edit()) {
+                putInt("gameSpeed", settings.gameSpeed)
+                putInt("maxCockroaches", settings.maxCockroaches)
+                putInt("bonusInterval", settings.bonusInterval)
+                putInt("roundDuration", settings.roundDuration)
+                apply()
+            }
+
+            Toast.makeText(context, "Settings saved!", Toast.LENGTH_SHORT).show()
+        }
+
+        return view
+    }
+}
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/ViewPagerAdapter.kt:
+package com.example.bugsgame
+
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
+import androidx.viewpager2.adapter.FragmentStateAdapter
+
+class ViewPagerAdapter(fragmentActivity: FragmentActivity) : FragmentStateAdapter(fragmentActivity) {
+
+    override fun getItemCount(): Int = 6
+
+    override fun createFragment(position: Int): Fragment {
+        return when (position) {
+            0 -> RegistrationFragment()
+            1 -> GameFragment()
+            2 -> RulesFragment()
+            3 -> AuthorsFragment()
+            4 -> SettingsFragment()
+            5 -> ScoresFragment()
+            else -> RegistrationFragment()
+        }
+    }
+}
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/data/AppDao.kt:
+package com.example.bugsgame.data
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface AppDao {
+    @Insert
+    suspend fun insertPlayer(player: Player)
+
+    @Query("SELECT * FROM players")
+    fun getAllPlayers(): Flow<List<Player>>
+
+    @Query("SELECT * FROM players WHERE fullName = :fullName LIMIT 1")
+    suspend fun getPlayerByName(fullName: String): Player?
+
+    @Insert
+    suspend fun insertScore(score: Score)
+
+    @Query("""
+        SELECT scores.*, players.fullName 
+        FROM scores 
+        INNER JOIN players ON scores.playerId = players.id 
+        ORDER BY scores.score DESC
+    """)
+    fun getAllScores(): Flow<List<ScoreWithPlayer>>
+
+    data class ScoreWithPlayer(
+        val id: Int,
+        val playerId: Int,
+        val score: Int,
+        val difficulty: Int,
+        val timestamp: Long,
+        val fullName: String,
+        val gameSpeed: Int,
+        val bonusInterval: Int,
+        val roundDuration: Int
+    )
+}
+
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/data/AppDatabase.kt:
+package com.example.bugsgame.data
+
+import androidx.room.Database
+import androidx.room.RoomDatabase
+
+@Database(entities = [Player::class, Score::class], version = 2, exportSchema = false)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun appDao(): AppDao
+
+    companion object {
+        const val DATABASE_NAME = "bugsgame_db"
+    }
+}
+
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/data/DatabaseProvider.kt:
+package com.example.bugsgame.data
+
+import android.content.Context
+import androidx.room.Room
+
+object DatabaseProvider {
+    private var instance: AppDatabase? = null
+
+    fun getDatabase(context: Context): AppDatabase {
+        return instance ?: synchronized(this) {
+            instance ?: Room.databaseBuilder(
+                context.applicationContext,
+                AppDatabase::class.java,
+                AppDatabase.DATABASE_NAME
+            ).fallbackToDestructiveMigration()
+                .build().also { instance = it }
+        }
+    }
+}
+
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/data/Player.kt:
+package com.example.bugsgame.data
+
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import java.util.Calendar
+
+@Entity(tableName = "players")
+data class Player(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val fullName: String,
+    val gender: String,
+    val course: String,
+    val birthDate: Long,
+    val zodiac: String
+)
+
+@Entity(tableName = "scores")
+data class Score(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val playerId: Int,
+    val score: Int,
+    val difficulty: Int,
+    val timestamp: Long,
+    val gameSpeed: Int,
+    val bonusInterval: Int,
+    val roundDuration: Int
+)
+
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/widget/CbrApiService.kt:
+package com.example.bugsgame.widget
+
+import okhttp3.ResponseBody
+import org.simpleframework.xml.Attribute
+import org.simpleframework.xml.Element
+import org.simpleframework.xml.ElementList
+import org.simpleframework.xml.Root
+import retrofit2.Retrofit
+import retrofit2.http.GET
+import retrofit2.http.Headers
+import retrofit2.http.Query
+import retrofit2.http.Streaming
+
+interface CbrApiService {
+    @Headers(
+        "User-Agent: Mozilla/5.0",
+        "Accept: application/xml"
+    )
+    @Streaming
+    @GET("scripts/xml_metall.asp")
+    suspend fun getDailyRates(
+        @Query("date_req1") date_req1: String,
+        @Query("date_req2") date_req2: String
+    ): ResponseBody
+}
+
+@Root(name = "Metall", strict = false)
+data class Metals(
+    @field:ElementList(inline = true, name = "Record", required = false)
+    var metallList: MutableList<MetallRecord> = mutableListOf()
+)
+
+@Root(name = "Record", strict = false)
+data class MetallRecord(
+    @field:Attribute(name = "Date", required = false)
+    var date: String? = null,
+
+    @field:Attribute(name = "Code")
+    var code: String = "",
+
+    @field:Element(name = "Sell")
+    var price: String = ""
+)
+
+object RetrofitClient {
+    private const val BASE_URL = "https://www.cbr.ru/"
+
+    val instance: CbrApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .build()
+            .create(CbrApiService::class.java)
+    }
+}
+
+================================================================================
+
+app/src/main/java/com/example/bugsgame/widget/GoldRateWidgetProvider.kt:
+package com.example.bugsgame.widget
+
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.Context
+import android.widget.RemoteViews
+import com.example.bugsgame.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.simpleframework.xml.core.Persister
+import java.text.DecimalFormat
+import java.nio.charset.Charset
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+
+class GoldRateWidgetProvider : AppWidgetProvider() {
+
+    private val job = SupervisorJob()
+    private val scope = CoroutineScope(Dispatchers.IO + job)
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        appWidgetIds.forEach { appWidgetId ->
+            updateAppWidget(context, appWidgetManager, appWidgetId)
+        }
+    }
+
+    private fun updateAppWidget(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int
+    ) {
+        val views = RemoteViews(context.packageName, R.layout.widget_gold_rate)
+        views.setTextViewText(R.id.tvGoldRate, "...")
+
+        scope.launch {
+            try {
+                val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                val todayCalendar = Calendar.getInstance()
+                val todayDateString = dateFormat.format(todayCalendar.time)
+
+                val sevenDaysAgoCalendar = Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, -7)
+                }
+                val sevenDaysAgoDateString = dateFormat.format(sevenDaysAgoCalendar.time)
+
+                android.util.Log.d("GoldRateWidget", "Fetching range: $sevenDaysAgoDateString to $todayDateString")
+
+                val responseBody = RetrofitClient.instance.getDailyRates(
+                    sevenDaysAgoDateString,
+                    todayDateString
+                )
+                val xmlString = String(responseBody.bytes(), Charset.forName("windows-1251"))
+
+                android.util.Log.d("GoldRateWidget", "Response string: $xmlString")
+
+                val serializer = Persister()
+                val response: Metals = serializer.read(Metals::class.java, xmlString)
+
+                val goldRecord = response.metallList.filter { it.code == "1" }.lastOrNull()
+                val rate = goldRecord?.price?.replace(",", ".")?.toFloatOrNull()
+                val dateStr = goldRecord?.date?.substring(0, 5)
+
+                val ratePerGram = rate ?: 0f
+                val displayDate = dateStr ?: "---"
+
+                val formattedRate = DecimalFormat("#,##0.00").format(ratePerGram)
+                val displayText = "Au ($displayDate)\n$formattedRate"
+
+                val sharedPrefs =
+                    context.getSharedPreferences("GameSettings", Context.MODE_PRIVATE)
+                sharedPrefs.edit().putFloat("gold_rate", ratePerGram).commit()
+
+                withContext(Dispatchers.Main) {
+                    views.setTextViewText(R.id.tvGoldRate, displayText)
+                    appWidgetManager.updateAppWidget(appWidgetId, views)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("GoldRateWidget", "Failed to fetch gold rate", e)
+                withContext(Dispatchers.Main) {
+                    views.setTextViewText(R.id.tvGoldRate, "Error")
+                    appWidgetManager.updateAppWidget(appWidgetId, views)
+                }
+            }
+        }
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        super.onDeleted(context, appWidgetIds)
+        job.cancel()
+    }
+}
+
+================================================================================
+
+app/src/main/res/drawable/widget_background_ball.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <solid android:color="#FFD700" />
+
+    <stroke android:width="2dp" android:color="#B8860B" />
+
+    <size
+        android:width="120dp"
+        android:height="120dp" />
+
+</shape>
+
+================================================================================
+
+app/src/main/res/layout/activity_main.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tabLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</LinearLayout>
+
+================================================================================
+
+app/src/main/res/layout/fragment_authors.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <ListView
+        android:id="@+id/lvAuthors"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</LinearLayout>
+
+================================================================================
+
+app/src/main/res/layout/fragment_game.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".GameFragment">
+
+    <RelativeLayout
+        android:id="@+id/gameArea"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false">
+
+    </RelativeLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:layout_alignParentTop="true">
+
+        <TextView
+            android:id="@+id/tvScore"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Score: 0"
+            android:textSize="24sp"
+            android:textColor="@android:color/black" />
+
+        <TextView
+            android:id="@+id/tvTimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Time: 60"
+            android:textSize="20sp"
+            android:textColor="@android:color/black" />
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnStartGame"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:text="Start Game" />
+
+</RelativeLayout>
+
+================================================================================
+
+app/src/main/res/layout/fragment_registration.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <Spinner
+            android:id="@+id/spPlayers"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <Button
+            android:id="@+id/btnSelectPlayer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Выбрать игрока"
+            app:layout_constraintTop_toBottomOf="@id/spPlayers"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="8dp" />
+
+        <EditText
+            android:id="@+id/etFullName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Полное имя"
+            app:layout_constraintTop_toBottomOf="@id/btnSelectPlayer"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp" />
+
+        <RadioGroup
+            android:id="@+id/rgGender"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/etFullName"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp">
+
+            <RadioButton
+                android:id="@+id/rbMale"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Мужской" />
+
+            <RadioButton
+                android:id="@+id/rbFemale"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Женский" />
+        </RadioGroup>
+
+        <Spinner
+            android:id="@+id/spCourse"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/rgGender"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp" />
+
+        <CalendarView
+            android:id="@+id/cvBirthDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/spCourse"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp" />
+
+        <ImageView
+            android:id="@+id/ivZodiac"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            app:layout_constraintTop_toBottomOf="@id/cvBirthDate"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp" />
+
+        <Button
+            android:id="@+id/btnSubmit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Сохранить"
+            app:layout_constraintTop_toBottomOf="@id/ivZodiac"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp" />
+
+        <TextView
+            android:id="@+id/tvOutput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/btnSubmit"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="16dp"
+            android:paddingBottom="16dp"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>
+
+
+================================================================================
+
+app/src/main/res/layout/fragment_rules.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <WebView
+        android:id="@+id/wvRules"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</LinearLayout>
+
+================================================================================
+
+app/src/main/res/layout/fragment_scores.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <ListView
+        android:id="@+id/lvScores"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+
+================================================================================
+
+app/src/main/res/layout/fragment_settings.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Game Speed" />
+    <SeekBar
+        android:id="@+id/sbGameSpeed"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="100"
+        android:progress="50" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Max Cockroaches on Screen" />
+    <EditText
+        android:id="@+id/etMaxCockroaches"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:hint="Enter number (e.g., 10)" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Bonus Appearance Interval (seconds)" />
+    <EditText
+        android:id="@+id/etBonusInterval"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:hint="Enter seconds (e.g., 15)" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Round Duration (seconds)" />
+    <EditText
+        android:id="@+id/etRoundDuration"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:hint="Enter seconds (e.g., 60)" />
+
+    <Button
+        android:id="@+id/btnSaveSettings"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Save Settings" />
+
+</LinearLayout>
+
+================================================================================
+
+app/src/main/res/layout/item_author.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp">
+
+    <ImageView
+        android:id="@+id/ivAuthorPhoto"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:src="@android:drawable/ic_menu_gallery" />
+
+    <TextView
+        android:id="@+id/tvAuthorName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="16dp"
+        android:textSize="16sp" />
+
+</LinearLayout>
+
+================================================================================
+
+app/src/main/res/layout/item_score.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/tvPlayerName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvScore"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/tvGameSpeed"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:layout_marginTop="4dp"/>
+
+    <TextView
+        android:id="@+id/tvMaxCockroaches"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/tvBonusInterval"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/tvRoundDuration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/tvDate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:layout_marginTop="4dp"/>
+
+</LinearLayout>
+
+
+================================================================================
+
+app/src/main/res/layout/widget_gold_rate.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="120dp"
+    android:layout_height="120dp"
+    android:background="@drawable/widget_background_ball">
+
+    <TextView
+        android:id="@+id/tvGoldRate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="Au\n..."
+        android:textColor="@android:color/black"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:gravity="center"/>
+
+</FrameLayout>
+
+================================================================================
+
+app/src/main/res/raw/rules.html:
+<html>
+    <head>
+        <title>Правила игры "Жуки"</title>
+    </head>
+    <body>
+        <h1>Правила игры</h1>
+        <ul>
+            <li>Цель игры — набрать как можно больше очков, нажимая на жуков.</li>
+            <li>Нажмите кнопку "Начать игру" на экране игры, чтобы начать раунд.</li>
+            <li>Каждый раунд длится 60 секунд.</li>
+            <li>Успешное нажатие на жука приносит <strong>10 очков</strong>.</li>
+            <li>Нажатие на фон (промах мимо жука) приводит к штрафу в <strong>5 очков</strong>.</li>
+            <li>Стремитесь набрать наивысший результат до истечения времени!</li>
+        </ul>
+    </body>
+</html>
+
+================================================================================
+
+app/src/main/res/values/colors.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
+
+================================================================================
+
+app/src/main/res/values/strings.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BugsGame</string>
+    <string-array name="author_names">
+        <item>Andreas Weibert</item>
+        <item>Grogiy Savchenko</item>
+    </string-array>
+    <string name="widget_description">Shows CBR Gold Rate</string>
+</resources>
+
+================================================================================
+
+app/src/main/res/values/themes.xml:
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.BugsGame" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    </style>
+
+    <style name="Theme.BugsGame" parent="Base.Theme.BugsGame" />
+</resources>
+
+================================================================================
+
+app/src/main/res/values-night/themes.xml:
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.BugsGame" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your dark theme here. -->
+        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+    </style>
+</resources>
+
+================================================================================
+
+app/src/main/res/xml/backup_rules.xml:
+<?xml version="1.0" encoding="utf-8"?><!--
+   Sample backup rules file; uncomment and customize as necessary.
+   See https://developer.android.com/guide/topics/data/autobackup
+   for details.
+   Note: This file is ignored for devices older than API 31
+   See https://developer.android.com/about/versions/12/backup-restore
+-->
+<full-backup-content>
+    <!--
+   <include domain="sharedpref" path="."/>
+   <exclude domain="sharedpref" path="device.xml"/>
+-->
+</full-backup-content>
+
+================================================================================
+
+app/src/main/res/xml/data_extraction_rules.xml:
+<?xml version="1.0" encoding="utf-8"?><!--
+   Sample data extraction rules file; uncomment and customize as necessary.
+   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
+   for details.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- TODO: Use <include> and <exclude> to control what is backed up.
+        <include .../>
+        <exclude .../>
+        -->
+    </cloud-backup>
+    <!--
+    <device-transfer>
+        <include .../>
+        <exclude .../>
+    </device-transfer>
+    -->
+</data-extraction-rules>
+
+================================================================================
+
+app/src/main/res/xml/gold_rate_widget_info.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="120dp"
+    android:minHeight="120dp"
+    android:updatePeriodMillis="3600000"
+    android:previewImage="@drawable/widget_background_ball"
+    android:initialLayout="@layout/widget_gold_rate"
+    android:resizeMode="none"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description">
+</appwidget-provider>
+
+================================================================================
+
+app/src/main/res/xml/network_security_config.xml:
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">cbr.ru</domain>
+    </domain-config>
+</network-security-config>
+
+================================================================================

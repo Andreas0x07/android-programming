@@ -2,9 +2,12 @@ package com.example.bugsgame
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.widget.ViewPager2
+import com.example.bugsgame.widget.GoldRateFetcher
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -29,5 +32,9 @@ class MainActivity : AppCompatActivity() {
                 else -> null
             }
         }.attach()
+
+        lifecycleScope.launch {
+            GoldRateFetcher.fetchAndSave(applicationContext)
+        }
     }
 }
